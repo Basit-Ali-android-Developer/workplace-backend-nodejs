@@ -34,7 +34,7 @@ const userMiddleware = asyncHandler(async (req, res, next) => {
     throw new AppError("Unauthorized: Invalid token payload", 401);
   }
 
-  const user = await userRepository.getFullUserById(decoded.id);
+  const user = await userRepository.getUserById(decoded.id);
 
   console.log(" USER FROM DB:", user);
 
