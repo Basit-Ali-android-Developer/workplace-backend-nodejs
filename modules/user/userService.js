@@ -8,8 +8,12 @@ const repository = require('./userRepository');
 
 const AppError = require('../../utils/AppError');
 const uploadToCloudinary = require("../../utils/uploadToCloudinary");
+const cloudinary = require("../../utils/cloudinary");
 
 const JWT_SECRET = process.env.JWT_SECRET;
+
+const crypto = require("crypto");
+const sendEmail = require("../../utils/sendEmail");
 
 
 
@@ -125,20 +129,34 @@ const uploadProfileImage = async (userId, file) => {
     throw new AppError("Image is required", 400);
   }
 
+  // GET USER
+  const user = await repository.getUserById(userId);
 
-  const result = await uploadToCloudinary(file.buffer, "profile_images");
+  // DELETE OLD IMAGE IF EXISTS
+  if (user.profile_image_public_id) {
 
-  // save URL in DB
+    await cloudinary.uploader.destroy(
+      user.profile_image_public_id
+    );
+  }
+
+  // UPLOAD NEW IMAGE
+  const result = await uploadToCloudinary(
+    file.buffer,
+    "profile_images"
+  );
+
+  // SAVE NEW IMAGE + PUBLIC ID
   const updatedUser = await repository.updateProfileImage(
     userId,
-    result.secure_url
+    result.secure_url,
+    result.public_id
   );
 
   return {
     profile_image: updatedUser.profile_image
   };
 };
-
 
 
 
@@ -162,6 +180,7 @@ const getUser = async (userId) => {
    updated_at,
    deleted_at,
    is_deleted,
+   profile_image_public_id,
    ...userWithoutSensitiveFields
   } = user;
 
@@ -169,9 +188,116 @@ const getUser = async (userId) => {
 };
 
 
+
+const updateProfile = async (userId, data) => {
+
+  const schema = Joi.object({
+    name: Joi.string().optional(),
+    email: Joi.string().email().optional(),
+  });
+
+  const { error, value } = schema.validate(data);
+
+  if (error) {
+    throw new AppError(error.details[0].message.replace(/"/g, ''),400);
+  }
+
+  if (value.email) {
+
+    const existingUser = await repository.findByEmailExcludeUser(value.email,userId);
+
+    if (existingUser) {
+      throw new AppError("Email already exists",409);
+    }
+  }
+
+  const updatedUser = await repository.updateProfile(userId,value);
+
+  // REMOVE SENSITIVE FIELDS
+  const {
+    password,
+    user_type,
+    deleted_at,
+    is_deleted,
+    profile_image_public_id,
+    ...safeUser
+  } = updatedUser;
+
+  return safeUser;
+};
+
+
+
+
+
+
+
+const forgotPassword = async (email) => {
+
+  const user = await repository.findByEmail(email);
+
+  if (!user) {
+    return; 
+  }
+
+  // 1. Generate token
+  const token = crypto.randomBytes(32).toString("hex");
+
+  // 2. Set expiry (10 minutes)
+  const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+  // 3. Save in DB
+  await repository.saveResetToken(user.id, token, expires);
+
+  // 4. Create reset link
+  const resetLink = `${process.env.FRONTEND_URL}/resetPassword?token=${token}`;
+
+  // 5. Send email
+  await sendEmail(
+    user.email,
+    "Reset Password",
+    `
+      <p>Click below to reset your password</p>
+      <a href="${resetLink}">${resetLink}</a>
+      <p>This link expires in 10 minutes</p>
+    `
+  );
+};
+
+
+
+
+
+const resetPassword = async (data) => {
+
+  const { token, password } = data;
+
+  const user = await repository.findByResetToken(token);
+
+  if (!user) {
+    throw new AppError("Invalid or expired token", 400);
+  }
+
+  if (new Date() > user.reset_password_expires) {
+    throw new AppError("Token expired", 400);
+  }
+
+  // hash new password
+  const hashed = await bcrypt.hash(password, 10);
+
+  // update password + clear token
+  await repository.updatePassword(user.id, hashed);
+};
+
+
+
 module.exports = {
   signup,
   login,
   uploadProfileImage,
-  getUser
+  getUser,
+  updateProfile,
+
+  forgotPassword,
+  resetPassword
 };

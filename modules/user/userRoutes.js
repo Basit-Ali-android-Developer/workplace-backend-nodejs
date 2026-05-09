@@ -6,7 +6,10 @@ const upload = require("../../middleware/upload");
 const { signup,
         login,
         uploadProfileImage,
-        getUser
+        getUser,
+        updateProfile,
+        forgotPassword,
+        resetPassword
         } = require('./userController');
 
 // POST /api/users/
@@ -14,6 +17,10 @@ router.post('/signup', signup);
 router.post('/login', login);
 router.post('/uploadProfileImage',userMiddleware,upload.single("image"),uploadProfileImage);
 router.get('/getUser',userMiddleware,getUser);
+router.put('/updateProfile',userMiddleware,updateProfile);
+
+router.post("/forgotPassword", forgotPassword);
+router.post("/resetPassword", resetPassword);
 
 
 
