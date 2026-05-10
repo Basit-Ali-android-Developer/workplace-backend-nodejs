@@ -105,9 +105,30 @@ const updateProject = async (projectId, data) => {
 
 
 
+const updateProjectStatus = async (projectId, status) => {
+
+  const result = await db.query(
+    `
+    UPDATE projects
+    SET
+      status = $1,
+      updated_at = NOW()
+    WHERE id = $2
+    RETURNING *
+    `,
+    [status, projectId]
+  );
+
+  return result.rows[0];
+};
+
+
+
 module.exports = {
   createProject,
   findByNameAndOwner,
   getById,
-  updateProject
+  updateProject,
+
+  updateProjectStatus
 };

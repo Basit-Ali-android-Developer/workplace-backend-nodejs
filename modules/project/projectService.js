@@ -86,7 +86,7 @@ const updateProject = async (userId, projectId, data) => {
 
   // 2. Check ownership
   if (project.owner_id !== userId) {
-    throw new AppError("You are not allowed to update this project", 403);
+    throw new AppError("Only Project Owner allowed to update", 403);
   }
 
   // 3. Duplicate name check (if name is being updated)
@@ -118,7 +118,46 @@ const updateProject = async (userId, projectId, data) => {
 
 
 
+
+
+const updateProjectStatus = async (userId, projectId, status) => {
+
+  const schema = Joi.string()
+    .valid("Active", "On Hold", "Completed", "Archived")
+    .required();
+
+  const { error } = schema.validate(status);
+
+  if (error) {
+    throw new AppError("Invalid status value", 400);
+  }
+
+  // 1. Check project exists
+  const project = await repository.getById(projectId);
+
+  if (!project) {
+    throw new AppError("Project not found", 404);
+  }
+
+  // 2. Check ownership
+  if (Number(project.owner_id) !== Number(userId)) {
+    throw new AppError("Not allowed to update this project", 403);
+  }
+
+  // 3. Update status
+  const updated = await repository.updateProjectStatus(
+    projectId,
+    status
+  );
+
+  return updated;
+};
+
+
+
+
 module.exports = {
   createProject,
-  updateProject
+  updateProject,
+  updateProjectStatus
 };

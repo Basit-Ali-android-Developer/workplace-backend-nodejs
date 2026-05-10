@@ -37,7 +37,24 @@ const updateProject = asyncHandler(async (req, res) => {
 
 
 
+const updateProjectStatus = asyncHandler(async (req, res) => {
+
+  const project = await service.updateProjectStatus(
+    req.user.id,
+    req.params.id,
+    req.body.status
+  );
+
+  res.status(200).json({
+    result: "success",
+    message: "Project status updated successfully",
+    data: project
+  });
+});
+
+
 module.exports = {
   createProject,
-  updateProject
+  updateProject,
+  updateProjectStatus
 };
