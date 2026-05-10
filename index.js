@@ -10,6 +10,7 @@ const errorMiddleware = require("./middleware/errorMiddleware");
 const requestLogger = require("./middleware/requestLoggerMiddleware");
 
 const userRoutes = require("./modules/user/userRoutes");
+const projectRoutes = require("./modules/project/projectRoutes");
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use(requestLogger);
 // ROUTES
 // ==========================
 app.use("/api/user", userRoutes);
+app.use("/api/project", projectRoutes);
 
 
 
@@ -62,7 +64,7 @@ app.use("/api/user", userRoutes);
 // HEALTH CHECK ROUTE
 // ==========================
 app.get("/", (req, res) => {
-  res.send("WorkPlace Backend Running (PostgreSQL 🚀)");
+  res.send("WorkPlace Backend Running (PostgreSQL )");
 });
 
 
