@@ -155,9 +155,63 @@ const updateProjectStatus = async (userId, projectId, status) => {
 
 
 
+const deleteProject = async (userId, projectId) => {
+
+  // 1. Check project exists
+  const project = await repository.getById(projectId);
+
+  if (!project) {
+    throw new AppError("Project not found", 404);
+  }
+
+  // 2. Check ownership
+  if (Number(project.owner_id) !== Number(userId)) {
+    throw new AppError("Not allowed to delete this project", 403);
+  }
+
+  // 3. Update status
+  const updated = await repository.deleteProject(projectId);
+
+  return updated;
+
+};
+
+
+
+
+
+
+const getProjectById = async (userId, projectId) => {
+
+  // 1. Validate id
+  if (!projectId || isNaN(projectId)) {
+    throw new AppError("Invalid project id", 400);
+  }
+
+  // 2. Get project
+  const project = await repository.getProjectById(projectId);
+
+  // 3. Check exists
+  if (!project) {
+    throw new AppError("Project not found", 404);
+  }
+
+ // 4. Authorization
+  // if (Number(project.owner_id) !== Number(userId)) {
+  //   throw new AppError("Not allowed to access this project", 403);
+  // }
+
+  return project;
+
+};
+
+
+
 
 module.exports = {
   createProject,
   updateProject,
-  updateProjectStatus
+  updateProjectStatus,
+  deleteProject,
+  getProjectById
 };

@@ -53,8 +53,47 @@ const updateProjectStatus = asyncHandler(async (req, res) => {
 });
 
 
+
+
+const deleteProject = asyncHandler(async (req, res) => {
+
+  await service.deleteProject(
+    req.user.id,
+    req.params.id
+  );
+
+  res.status(200).json({
+    result: "success",
+    message: "Project deleted successfully",
+    data: null
+  });
+
+});
+
+
+
+
+const getProjectById = asyncHandler(async (req, res) => {
+
+  const project = await service.getProjectById(
+    req.user.id,
+    req.params.id
+  );
+
+  res.status(200).json({
+    result: "success",
+    message: "Project fetched successfully",
+    data: project
+  });
+
+});
+
+
+
 module.exports = {
   createProject,
   updateProject,
-  updateProjectStatus
+  updateProjectStatus,
+  deleteProject,
+  getProjectById
 };

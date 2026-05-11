@@ -124,11 +124,71 @@ const updateProjectStatus = async (projectId, status) => {
 
 
 
+
+const deleteProject = async (projectId) => {
+
+ const result = await db.query(
+    `
+      UPDATE projects
+      SET
+        is_deleted = true,
+        updated_at = NOW()
+      WHERE id = $1
+       RETURNING *
+    `,
+    [projectId]
+  );
+
+  return result.rows[0];
+};
+
+
+
+
+const getProjectById = async (projectId) => {
+
+  const result = await db.query(
+    `
+      SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.status,
+        p.priority,
+        p.start_date,
+        p.due_date,
+        p.completed_at,
+        p.created_at,
+        p.updated_at,
+
+        u.id AS owner_id,
+        u.name AS owner_name,
+        u.email AS owner_email
+
+      FROM projects p
+
+      INNER JOIN users u
+        ON p.owner_id = u.id
+
+      WHERE p.id = $1
+      AND p.is_deleted = false
+    `,
+    [projectId]
+  );
+
+  return result.rows[0];
+
+};
+
+
+
 module.exports = {
   createProject,
   findByNameAndOwner,
   getById,
   updateProject,
 
-  updateProjectStatus
+  updateProjectStatus,
+  deleteProject,
+  getProjectById
 };
