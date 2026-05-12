@@ -112,7 +112,8 @@ const updateProjectStatus = async (projectId, status) => {
     UPDATE projects
     SET
       status = $1,
-      updated_at = NOW()
+      updated_at = NOW(),
+      completed_at = NOW()
     WHERE id = $2
     RETURNING *
     `,
@@ -182,6 +183,36 @@ const getProjectById = async (projectId) => {
 
 
 
+
+const getTasksByProjectId = async (projectId) => {
+
+  const result = await db.query(
+    `
+    SELECT
+      id,
+      title,
+      description,
+      status,
+      priority,
+      assigned_to,
+      start_date,
+      due_date,
+      completed_at,
+      actual_hours,
+      total_sessions,
+      created_at,
+      updated_at
+    FROM tasks
+    WHERE project_id = $1
+    AND is_deleted = false
+    ORDER BY created_at DESC
+    `,
+    [projectId]
+  );
+
+  return result.rows;
+};
+
 module.exports = {
   createProject,
   findByNameAndOwner,
@@ -190,5 +221,7 @@ module.exports = {
 
   updateProjectStatus,
   deleteProject,
-  getProjectById
+  getProjectById,
+
+  getTasksByProjectId
 };

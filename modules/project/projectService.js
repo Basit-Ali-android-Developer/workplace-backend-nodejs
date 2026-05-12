@@ -140,9 +140,9 @@ const updateProjectStatus = async (userId, projectId, status) => {
   }
 
   // 2. Check ownership
-  if (Number(project.owner_id) !== Number(userId)) {
-    throw new AppError("Not allowed to update this project", 403);
-  }
+  // if (Number(project.owner_id) !== Number(userId)) {
+  //   throw new AppError("Not allowed to update this project", 403);
+  // }
 
   // 3. Update status
   const updated = await repository.updateProjectStatus(
@@ -181,6 +181,7 @@ const deleteProject = async (userId, projectId) => {
 
 
 
+
 const getProjectById = async (userId, projectId) => {
 
   // 1. Validate id
@@ -196,16 +197,20 @@ const getProjectById = async (userId, projectId) => {
     throw new AppError("Project not found", 404);
   }
 
- // 4. Authorization
+  // 4. Authorization
   // if (Number(project.owner_id) !== Number(userId)) {
   //   throw new AppError("Not allowed to access this project", 403);
   // }
 
-  return project;
+  // 5. Get tasks
+  const tasks = await repository.getTasksByProjectId(projectId);
 
+  // 6. Return combined response
+  return {
+    ...project,
+    tasks
+  };
 };
-
-
 
 
 module.exports = {
