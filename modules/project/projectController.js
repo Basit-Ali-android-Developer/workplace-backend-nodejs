@@ -90,10 +90,25 @@ const getProjectById = asyncHandler(async (req, res) => {
 
 
 
+const getUsersProject = asyncHandler(async (req, res) => {
+
+  const data = await service.getUsersProject(req.user.id);
+
+  res.status(200).json({
+    result: "success",
+    message: "Dashboard fetched successfully",
+    data
+  });
+});
+
+
+
+
 module.exports = {
   createProject,
   updateProject,
   updateProjectStatus,
   deleteProject,
-  getProjectById
+  getProjectById,
+  getUsersProject
 };

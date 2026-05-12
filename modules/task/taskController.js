@@ -148,6 +148,20 @@ const completeTask = asyncHandler(async (req, res) => {
 
 
 
+
+const getMyActiveTasks = asyncHandler(async (req, res) => {
+
+  const tasks = await service.getMyActiveTasks(req.user.id);
+
+  res.status(200).json({
+    result: "success",
+    message: "Active tasks fetched successfully",
+    data: tasks
+  });
+
+});
+
+
 module.exports = {
   createTask,
   getTaskById,
@@ -157,5 +171,7 @@ module.exports = {
 
   startTask,
   stopTask,
-  completeTask
+  completeTask,
+
+  getMyActiveTasks
 };

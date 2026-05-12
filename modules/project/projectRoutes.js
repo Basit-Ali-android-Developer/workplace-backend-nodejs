@@ -7,7 +7,8 @@ const { createProject,
         updateProject,
         updateProjectStatus,
         deleteProject,
-        getProjectById
+        getProjectById,
+        getUsersProject
         } = require('./projectController');
 
 
@@ -17,6 +18,7 @@ router.put('/updateProjectStatus/:id',userMiddleware, updateProjectStatus);
 router.delete('/deleteProject/:id',userMiddleware, deleteProject);
 
 router.get('/getProjectById/:id',userMiddleware, getProjectById);
+router.get('/getUsersProject',userMiddleware, getUsersProject);
 
 
 

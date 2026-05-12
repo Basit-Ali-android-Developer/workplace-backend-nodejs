@@ -59,6 +59,80 @@ const findByNameAndOwner = async (name, ownerId) => {
 
 
 
+const addProjectMember = async (
+  projectId,
+  userId,
+  role = "member",
+  canAssignTasks = false,
+  canManageProject = false
+) => {
+
+  const result = await db.query(
+    `
+    INSERT INTO project_members
+    (
+      project_id,
+      user_id,
+      role,
+      can_assign_tasks,
+      can_manage_project,
+      joined_at
+    )
+    VALUES
+    (
+      $1, $2, $3, $4, $5, NOW()
+    )
+    RETURNING *
+    `,
+    [
+      projectId,
+      userId,
+      role,
+      canAssignTasks,
+      canManageProject
+    ]
+  );
+
+  return result.rows[0];
+};
+
+
+
+
+
+
+const getProjectMember = async (projectId, userId) => {
+
+  const result = await db.query(
+    `
+    SELECT *
+    FROM project_members
+    WHERE project_id = $1
+    AND user_id = $2
+    `,
+    [projectId, userId]
+  );
+
+  return result.rows[0];
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const getById = async (projectId) => {
 
   const result = await db.query(
@@ -213,9 +287,94 @@ const getTasksByProjectId = async (projectId) => {
   return result.rows;
 };
 
+
+
+
+
+
+
+
+
+const getUserProjects = async (userId) => {
+
+  const result = await db.query(
+    `
+    SELECT DISTINCT
+      p.id,
+      p.name,
+      p.description,
+      p.status,
+      p.priority,
+      p.created_at,
+
+      CASE 
+        WHEN p.owner_id = $1 THEN 'owner'
+        ELSE pm.role
+      END AS user_role
+
+    FROM projects p
+
+    LEFT JOIN project_members pm
+      ON pm.project_id = p.id
+      AND pm.user_id = $1
+
+    WHERE 
+      p.owner_id = $1
+      OR pm.user_id = $1
+      AND p.is_deleted = false
+
+    ORDER BY p.created_at DESC
+    `,
+    [userId]
+  );
+
+  return result.rows;
+};
+
+
+
+const getProjectMembers = async (projectId) => {
+
+  const result = await db.query(
+    `
+    SELECT 
+      pm.user_id,
+      pm.role,
+      u.name,
+      u.email,
+      u.profile_image
+    FROM project_members pm
+    INNER JOIN users u ON u.id = pm.user_id
+    WHERE pm.project_id = $1
+    `,
+    [projectId]
+  );
+
+  return result.rows;
+};
+
+
+
+
+
+
+
+
+
 module.exports = {
   createProject,
   findByNameAndOwner,
+  addProjectMember,
+
+  getProjectMember,
+
+
+
+
+
+
+
+
   getById,
   updateProject,
 
@@ -223,5 +382,8 @@ module.exports = {
   deleteProject,
   getProjectById,
 
-  getTasksByProjectId
+  getTasksByProjectId,
+
+  getUserProjects,
+  getProjectMembers,
 };

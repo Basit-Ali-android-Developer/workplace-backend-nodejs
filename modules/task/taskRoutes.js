@@ -10,7 +10,8 @@ const { createTask,
     startTask,
     stopTask,
     completeTask,
-    updateTask
+    updateTask,
+    getMyActiveTasks
         
         } = require('./taskController');
 
@@ -25,6 +26,7 @@ router.post('/startTask/:id',userMiddleware,startTask);
 router.post('/stopTask/:id',userMiddleware,stopTask);
 router.post('/completeTask/:id',userMiddleware,completeTask);
 
+router.get('/getMyActiveTasks',userMiddleware, getMyActiveTasks);
 
 
 

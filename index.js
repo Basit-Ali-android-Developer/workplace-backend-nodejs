@@ -12,6 +12,7 @@ const requestLogger = require("./middleware/requestLoggerMiddleware");
 const userRoutes = require("./modules/user/userRoutes");
 const projectRoutes = require("./modules/project/projectRoutes");
 const taskRoutes = require("./modules/task/taskRoutes");
+const memberRoutes = require("./modules/member/memberRoutes");
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use(requestLogger);
 app.use("/api/user", userRoutes);
 app.use("/api/project", projectRoutes);
 app.use("/api/task", taskRoutes);
+app.use("/api/member", memberRoutes);
 
 
 

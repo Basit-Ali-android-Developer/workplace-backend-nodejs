@@ -367,6 +367,29 @@ const completeTask = async (taskId) => {
 
 
 
+
+
+
+const getActiveTasksByUser = async (userId) => {
+
+  const result = await db.query(
+    `
+    SELECT *
+    FROM tasks
+    WHERE assigned_to = $1
+      AND is_deleted = false
+      AND status != 'Completed'
+    ORDER BY created_at DESC
+    `,
+    [userId]
+  );
+
+  return result.rows;
+};
+
+
+
+
 module.exports = {
   createTask,
   getById,
@@ -386,7 +409,8 @@ module.exports = {
   stopTaskTimer,
   completeTask,
 
-  updateTask
+  updateTask,
+  getActiveTasksByUser
   
 
 };

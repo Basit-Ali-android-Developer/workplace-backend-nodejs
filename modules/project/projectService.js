@@ -19,26 +19,20 @@ const createProject = async (userId, data) => {
   const { error, value } = schema.validate(data);
 
   if (error) {
-    throw new AppError(
-      error.details[0].message.replace(/"/g, ""),
-      400
-    );
+    throw new AppError(error.details[0].message.replace(/"/g, ""),400);
   }
 
   if (value.due_date && value.due_date < value.start_date) {
     throw new AppError("Due date cannot be before start date", 400);
   }
 
-  // 🔥 NEW UNIQUE CHECK
-  const existingProject = await repository.findByNameAndOwner(
-    value.name,
-    userId
-  );
+  const existingProject = await repository.findByNameAndOwner(value.name,userId);
 
   if (existingProject) {
     throw new AppError("Project name already exists", 409);
   }
 
+  // 1. Create project
   const project = await repository.createProject({
     name: value.name,
     description: value.description,
@@ -49,9 +43,17 @@ const createProject = async (userId, data) => {
     due_date: value.due_date || null
   });
 
+  // 2. Add owner as project member
+  await repository.addProjectMember(
+    project.id,
+    userId,
+    "owner",
+    true,
+    true
+  );
+
   return project;
 };
-
 
 
 
@@ -85,9 +87,12 @@ const updateProject = async (userId, projectId, data) => {
   }
 
   // 2. Check ownership
-  if (project.owner_id !== userId) {
-    throw new AppError("Only Project Owner allowed to update", 403);
-  }
+  // if (project.owner_id !== userId) {
+  //   throw new AppError("Only Project Owner allowed to update", 403);
+  // }
+
+  await checkProjectManagementAccess( projectId, userId);
+
 
   // 3. Duplicate name check (if name is being updated)
   if (value.name) {
@@ -139,6 +144,9 @@ const updateProjectStatus = async (userId, projectId, status) => {
     throw new AppError("Project not found", 404);
   }
 
+
+  await checkProjectManagementAccess(projectId,userId);
+
   // 2. Check ownership
   // if (Number(project.owner_id) !== Number(userId)) {
   //   throw new AppError("Not allowed to update this project", 403);
@@ -165,9 +173,7 @@ const deleteProject = async (userId, projectId) => {
   }
 
   // 2. Check ownership
-  if (Number(project.owner_id) !== Number(userId)) {
-    throw new AppError("Not allowed to delete this project", 403);
-  }
+  await checkProjectManagementAccess(projectId,userId);
 
   // 3. Update status
   const updated = await repository.deleteProject(projectId);
@@ -197,10 +203,7 @@ const getProjectById = async (userId, projectId) => {
     throw new AppError("Project not found", 404);
   }
 
-  // 4. Authorization
-  // if (Number(project.owner_id) !== Number(userId)) {
-  //   throw new AppError("Not allowed to access this project", 403);
-  // }
+  await checkProjectViewAccess(projectId, userId);
 
   // 5. Get tasks
   const tasks = await repository.getTasksByProjectId(projectId);
@@ -213,10 +216,83 @@ const getProjectById = async (userId, projectId) => {
 };
 
 
+
+
+const checkProjectManagementAccess = async (projectId, userId) => {
+
+  const member = await repository.getProjectMember(
+    projectId,
+    userId
+  );
+
+  if (!member) {
+    throw new AppError("Project access denied", 403);
+  }
+
+  if (
+    member.role !== "owner" &&
+    member.can_manage_project !== true
+  ) {
+    throw new AppError(
+      "Not allowed to manage this project",
+      403
+    );
+  }
+
+  return member;
+};
+
+
+
+const checkProjectViewAccess = async (projectId, userId) => {
+
+  const member = await repository.getProjectMember(
+    projectId,
+    userId
+  );
+
+  const project = await repository.getById(projectId);
+
+  const isOwner = project.owner_id === userId;
+
+  if (!member && !isOwner) {
+    throw new AppError("Project access denied", 403);
+  }
+
+  return member;
+};
+
+
+
+
+
+const getUsersProject = async (userId) => {
+
+  const projects = await repository.getUserProjects(userId);
+
+  for (let project of projects) {
+
+    const members = await repository.getProjectMembers(project.id);
+
+    const tasks = await repository.getTasksByProjectId(project.id);
+
+    project.members = members;
+    project.tasks = tasks;
+  }
+
+  return projects;
+};
+
+
+
+
 module.exports = {
   createProject,
   updateProject,
   updateProjectStatus,
   deleteProject,
-  getProjectById
+  getProjectById,
+  checkProjectManagementAccess,
+  checkProjectViewAccess,
+  getUsersProject
 };

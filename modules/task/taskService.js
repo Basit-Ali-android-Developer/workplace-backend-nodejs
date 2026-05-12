@@ -365,6 +365,13 @@ const completeTask = async (userId, taskId) => {
 };
 
 
+const getMyActiveTasks = async (userId) => {
+
+  const tasks = await repository.getActiveTasksByUser(userId);
+
+  return tasks;
+};
+
 
 
 module.exports = {
@@ -376,5 +383,7 @@ module.exports = {
 
   startTask,
   stopTask,
-  completeTask
+  completeTask,
+
+  getMyActiveTasks
 };
