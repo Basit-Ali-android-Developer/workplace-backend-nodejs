@@ -18,6 +18,21 @@ const getById = async (projectId) => {
 
 
 
+const getprojectId = async (taskId) => {
+
+  const result = await db.query(
+    `
+    SELECT project_id
+    FROM tasks
+    WHERE id = $1
+    `,
+    [taskId]
+  );
+
+   return result.rows[0]?.project_id;
+};
+
+
 const getTaskByTitleAndProject = async (projectId, title) => {
 
   const result = await db.query(
@@ -156,6 +171,38 @@ const getTasksByProject = async (projectId) => {
 };
 
 
+
+
+
+const updateTask = async (taskId, data) => {
+
+  const result = await db.query(
+    `
+    UPDATE tasks
+    SET
+      title = COALESCE($1, title),
+      description = COALESCE($2, description),
+      priority = COALESCE($3, priority),
+      assigned_to = COALESCE($4, assigned_to),
+      start_date = COALESCE($5, start_date),
+      due_date = COALESCE($6, due_date),
+      updated_at = NOW()
+    WHERE id = $7
+    RETURNING *
+    `,
+    [
+      data.title,
+      data.description,
+      data.priority,
+      data.assigned_to,
+      data.start_date,
+      data.due_date,
+      taskId
+    ]
+  );
+
+  return result.rows[0];
+};
 
 
 
@@ -327,6 +374,7 @@ module.exports = {
   getTaskById,
   getTasksByProject,
   deleteTask,
+  getprojectId,
 
   startTask,
   createTimeLog,
@@ -336,6 +384,9 @@ module.exports = {
   stopTask,
 
   stopTaskTimer,
-  completeTask
+  completeTask,
+
+  updateTask
+  
 
 };

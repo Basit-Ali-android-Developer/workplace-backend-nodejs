@@ -56,6 +56,26 @@ const getTasksByProject = asyncHandler(async (req, res) => {
 
 
 
+
+
+const updateTask = asyncHandler(async (req, res) => {
+
+  const task = await service.updateTask(
+    req.user.id,
+    req.params.id,
+    req.body
+  );
+
+  res.status(200).json({
+    result: "success",
+    message: "Task updated successfully",
+    data: task
+  });
+});
+
+
+
+
 const deleteTask = asyncHandler(async (req, res) => {
 
   await service.deleteTask(
@@ -133,6 +153,7 @@ module.exports = {
   getTaskById,
   getTasksByProject,
   deleteTask,
+  updateTask,
 
   startTask,
   stopTask,

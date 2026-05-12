@@ -87,6 +87,81 @@ if (nameExists) {
 
 
 
+const updateTask = async (userId, taskId, data) => {
+
+    const schema = Joi.object({
+    title: Joi.string().trim().required(),
+    description: Joi.string().trim().required(),
+    priority: Joi.string()
+      .valid("Low", "Medium", "High", "Critical")
+      .required(),
+    assigned_to: Joi.number().integer().required(),
+    start_date: Joi.date().required(),
+    due_date: Joi.date().required()
+  });
+
+
+  const { error, value } = schema.validate(data);
+
+  if (error) {
+    throw new AppError(error.details[0].message.replace(/"/g, ""),400);
+  }
+
+  const {
+    title,
+    description,
+    priority,
+    assigned_to,
+    start_date,
+    due_date
+  } = value;
+
+
+  if (new Date(due_date).getTime() < new Date(start_date).getTime()) {
+    throw new AppError("Due date cannot be before start date", 400);
+  }
+
+   const project_id = await repository.getprojectId(taskId);
+
+  
+  // const project = await repository.getById(project_id);
+
+  // if (!project) {
+  //   throw new AppError("Project not found", 404);
+  // }
+
+
+  // if (Number(project.owner_id) !== Number(userId)) {
+  //   throw new AppError("Not allowed to create task in this project", 403);
+  // }
+
+
+  const assignedUser = await userRepository.getUserById(assigned_to);
+
+  if (!assignedUser) {
+    throw new AppError("Assigned user not found", 404);
+  }
+
+
+  const nameExists = await repository.getTaskByTitleAndProject(project_id,title);
+
+if (nameExists) {
+  throw new AppError("Task already exists", 409);
+}
+
+
+
+
+  // 5. Update project
+  const updatedProject = await repository.updateTask(
+    taskId,
+    value
+  );
+
+  return updatedProject;
+};
+
+
 
 const getTaskById = async (userId, taskId) => {
 
@@ -297,6 +372,7 @@ module.exports = {
   getTaskById,
   getTasksByProject,
   deleteTask,
+  updateTask,
 
   startTask,
   stopTask,
