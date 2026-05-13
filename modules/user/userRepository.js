@@ -97,6 +97,21 @@ const getUserById = async (id) => {
 };
 
 
+const getUserByEmail = async (email) => {
+
+  const result = await db.query(
+    `
+    SELECT *
+    FROM users
+    WHERE email = $1 AND is_deleted = false
+    `,
+    [email]
+  );
+
+  return result.rows[0];
+};
+
+
 
 const updateProfileImage = async (
   userId,
@@ -205,5 +220,6 @@ module.exports = {
   
   saveResetToken,
   findByResetToken,
-  updatePassword
+  updatePassword,
+  getUserByEmail
 };

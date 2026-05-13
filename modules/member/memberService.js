@@ -4,28 +4,24 @@ const memberCheck = require("../project/projectService");
 const projectRepository = require("../project/projectRepository");
 const userRepository = require("../user/userRepository");
 const AppError = require("../../utils/AppError");
+const projectAccess = require("../../utils/projectAccess");
 
 
 
 
 
-const addMember = async (currentUserId,projectId,data) => {
+const addMember = async (currentUserId, projectId, data) => {
 
   // 1. Validate input
   const schema = Joi.object({
-    user_id: Joi.number().integer().required(),
-    role: Joi.string()
-      .valid("admin", "member")
-      .default("member")
+    email: Joi.string().email().required(),
+    role: Joi.string().valid("admin", "member").default("member")
   });
 
   const { error, value } = schema.validate(data);
 
   if (error) {
-    throw new AppError(
-      error.details[0].message.replace(/"/g, ""),
-      400
-    );
+    throw new AppError(error.details[0].message, 400);
   }
 
   // 2. Check project exists
@@ -35,26 +31,27 @@ const addMember = async (currentUserId,projectId,data) => {
     throw new AppError("Project not found", 404);
   }
 
-  // 3. Permission check (only owner/admin can add members)
-  await memberCheck.checkProjectManagementAccess(projectId,currentUserId);
+  // 3. Check permission (owner/admin only)
+  await projectAccess.checkProjectManagementAccess(projectId, currentUserId);
 
-  // 4. Check user exists
-  const user = await userRepository.getUserById(
-    value.user_id
-  );
+  // 4. Find user by email
+  const user = await userRepository.getUserByEmail(value.email);
 
   if (!user) {
-    throw new AppError("User not found", 404);
+    throw new AppError("User not found with this email", 404);
   }
 
-  // 5. Check already a member
-  const existing = await repository.getProjectMember(projectId,value.user_id);
+  // 5. Check already member
+  const existing = await repository.getProjectMember(
+    projectId,
+    user.id
+  );
 
   if (existing) {
-    throw new AppError("User already a project member",409);
+    throw new AppError("User already a project member", 409);
   }
 
-  // 6. Set permissions based on role
+  // 6. Set permissions
   let canManage = false;
   let canAssign = false;
 
@@ -63,10 +60,10 @@ const addMember = async (currentUserId,projectId,data) => {
     canAssign = true;
   }
 
-  // 7. Insert member
+  // 7. Insert into project_members
   const member = await repository.addProjectMember(
     projectId,
-    value.user_id,
+    user.id,          // IMPORTANT: resolved ID
     value.role,
     canAssign,
     canManage

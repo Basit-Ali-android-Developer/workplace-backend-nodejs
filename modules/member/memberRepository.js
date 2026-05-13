@@ -49,8 +49,24 @@ const addProjectMember = async (projectId,userId,role,canAssignTasks,canManagePr
 };
 
 
+const getUserByEmail = async (email) => {
+
+  const result = await db.query(
+    `
+    SELECT id, name, email
+    FROM users
+    WHERE email = $1
+    AND is_deleted = false
+    `,
+    [email]
+  );
+
+  return result.rows[0];
+};
+
 
 module.exports = {
     getProjectMember,
-    addProjectMember
+    addProjectMember,
+    getUserByEmail
 };
