@@ -8,7 +8,8 @@ const { createProject,
         updateProjectStatus,
         deleteProject,
         getProjectById,
-        getUsersProject
+        getUsersProject,
+        getProjectMembers
         } = require('./projectController');
 
 
@@ -19,6 +20,8 @@ router.delete('/deleteProject/:id',userMiddleware, deleteProject);
 
 router.get('/getProjectById/:id',userMiddleware, getProjectById);
 router.get('/getUsersProject',userMiddleware, getUsersProject);
+
+router.get('/getProjectMembers/:id',userMiddleware, getProjectMembers);
 
 
 
