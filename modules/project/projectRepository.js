@@ -232,17 +232,20 @@ const updateProject = async (projectId,data) => {
 
 
 
-const updateProjectStatus = async (projectId,status) => {
+const updateProjectStatus = async (
+  projectId,
+  status
+) => {
 
   const result = await db.query(
     `
     UPDATE projects
     SET
-      status = $1,
+      status = $1::text,
 
       completed_at =
         CASE
-          WHEN $1 = 'Completed'
+          WHEN $1::text = 'Completed'
           THEN NOW()
           ELSE NULL
         END,

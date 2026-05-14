@@ -152,7 +152,8 @@ const getTasksByProject = async (projectId) => {
         t.total_sessions,
         t.created_at,
 
-        u.name AS assigned_user_name
+        u.name AS assigned_user_name,
+        u.id AS assigned_user_id
 
       FROM tasks t
 
@@ -349,15 +350,16 @@ const completeTask = async (taskId) => {
 
   const result = await db.query(
     `
-      UPDATE tasks
-      SET
-        status = 'Completed',
-        completed_at = NOW(),
-        is_timer_running = false,
-        updated_at = NOW()
-      WHERE id = $1
-        AND is_deleted = false
-      RETURNING *
+    UPDATE tasks
+    SET
+      status = 'Completed',
+      is_timer_running = false,
+      completed_at = NOW(),
+      updated_at = NOW()
+
+    WHERE id = $1
+
+    RETURNING *
     `,
     [taskId]
   );
@@ -374,12 +376,22 @@ const getActiveTasksByUser = async (userId) => {
 
   const result = await db.query(
     `
-    SELECT *
-    FROM tasks
-    WHERE assigned_to = $1
-      AND is_deleted = false
-      AND status != 'Completed'
-    ORDER BY created_at DESC
+    SELECT
+      t.*
+    FROM tasks t
+
+    INNER JOIN projects p
+      ON p.id = t.project_id
+
+    WHERE t.assigned_to = $1
+
+      AND t.is_deleted = false
+      AND t.status != 'Completed'
+
+      AND p.is_deleted = false
+      AND p.status != 'Completed'
+
+    ORDER BY t.created_at DESC
     `,
     [userId]
   );
@@ -388,6 +400,21 @@ const getActiveTasksByUser = async (userId) => {
 };
 
 
+
+
+const getTaskByIdForTimer = async (taskId) => {
+
+  const result = await db.query(
+    `
+    SELECT *
+    FROM tasks
+    WHERE id = $1
+    `,
+    [taskId]
+  );
+
+  return result.rows[0];
+};
 
 
 module.exports = {
@@ -410,7 +437,8 @@ module.exports = {
   completeTask,
 
   updateTask,
-  getActiveTasksByUser
+  getActiveTasksByUser,
+  getTaskByIdForTimer
   
 
 };

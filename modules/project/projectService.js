@@ -184,32 +184,46 @@ const updateProject = async (userId,projectId,data) => {
 
 
 
-const updateProjectStatus = async ( userId,projectId,status) => {
+const updateProjectStatus = async (
+  userId,
+  projectId,
+  status
+) => {
 
-  const schema = Joi.string()
-    .valid(
-      "Active",
-      "On Hold",
-      "Completed",
-      "Archived"
-    )
-    .required();
+  // 1. Validate status
+  const allowedStatuses = [
+    "Active",
+    "On Hold",
+    "Completed",
+    "Archived"
+  ];
 
-  const { error } = schema.validate(status);
-
-  if (error) {
-    throw new AppError("Invalid status value",400);
+  if (!allowedStatuses.includes(status)) {
+    throw new AppError("Invalid status value", 400);
   }
 
+  // 2. Check project exists
   const project = await repository.getById(projectId);
 
   if (!project) {
-    throw new AppError("Project not found",404);
+    throw new AppError("Project not found", 404);
   }
 
-  await checkProjectManagementAccess(projectId,userId);
+  // 3. Permission check
+  await checkProjectManagementAccess(
+    projectId,
+    userId
+  );
 
-  const updated = await repository.updateProjectStatus(projectId,status);
+  // 4. Normalize status (important for DB safety)
+  const normalizedStatus = String(status);
+
+  // 5. Update
+  const updated =
+    await repository.updateProjectStatus(
+      projectId,
+      normalizedStatus
+    );
 
   return updated;
 };
