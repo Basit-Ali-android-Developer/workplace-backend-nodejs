@@ -15,9 +15,19 @@ const projectRepository = require("../project/projectRepository");
 const createTask = async (userId, data) => {
 
   const schema = Joi.object({
-    project_id: Joi.number().integer().required(),
+    project_id: Joi.number().integer().when("task_type", {
+      is: "project",
+      then: Joi.required(),
+      otherwise: Joi.optional().allow(null)
+    }),
+
     title: Joi.string().trim().required(),
     description: Joi.string().trim().required(),
+
+    task_type: Joi.string()
+      .valid("project", "personal")
+      .required(),
+
     priority: Joi.string()
       .valid("Low", "Medium", "High", "Critical")
       .required(),
@@ -31,16 +41,14 @@ const createTask = async (userId, data) => {
   const { error, value } = schema.validate(data);
 
   if (error) {
-    throw new AppError(
-      error.details[0].message.replace(/"/g, ""),
-      400
-    );
+    throw new AppError(error.details[0].message.replace(/"/g, ""), 400);
   }
 
   const {
     project_id,
     title,
     description,
+    task_type,
     priority,
     assigned_to,
     start_date,
@@ -52,17 +60,38 @@ const createTask = async (userId, data) => {
     throw new AppError("Due date cannot be before start date", 400);
   }
 
-  // 2. Check project exists
+  // =========================
+  // PERSONAL TASK
+  // =========================
+  if (task_type === "personal") {
+
+    const task = await repository.createTask({
+      project_id: null,
+      title,
+      description,
+      task_type,
+      priority,
+      assigned_to: userId,
+      start_date,
+      due_date,
+      created_by: userId
+    });
+
+    return task;
+  }
+
+  // =========================
+  // PROJECT TASK
+  // =========================
+
   const project = await repository.getById(project_id);
 
   if (!project) {
     throw new AppError("Project not found", 404);
   }
 
-  // 3. CHECK PERMISSION (IMPORTANT)
-  const member = await checkProjectManagementAccess(project_id,userId);
+  await checkProjectManagementAccess(project_id, userId);
 
-  // 4. Check duplicate task title in project
   const exists = await repository.getTaskByTitleAndProject(
     project_id,
     title
@@ -72,21 +101,23 @@ const createTask = async (userId, data) => {
     throw new AppError("Task already exists in this project", 409);
   }
 
-  // 5. If assigned user is provided → validate membership
   if (assigned_to) {
 
-    const assignedMember = await projectRepository.getProjectMember(project_id,assigned_to);
+    const assignedMember = await projectRepository.getProjectMember(
+      project_id,
+      assigned_to
+    );
 
     if (!assignedMember) {
-      throw new AppError("Assigned user is not a project member",400);
+      throw new AppError("Assigned user is not a project member", 400);
     }
   }
 
-  // 6. Create task
   const task = await repository.createTask({
     project_id,
     title,
     description,
+    task_type,
     priority,
     assigned_to: assigned_to || null,
     start_date,
@@ -100,12 +131,12 @@ const createTask = async (userId, data) => {
 
 
 
+
 const updateTask = async (userId, taskId, data) => {
 
   // 1. Validate input
   const schema = Joi.object({
     title: Joi.string().trim().required(),
-
     description: Joi.string().trim().required(),
 
     priority: Joi.string()
@@ -113,18 +144,15 @@ const updateTask = async (userId, taskId, data) => {
       .required(),
 
     assigned_to: Joi.number().integer().optional().allow(null),
-    start_date: Joi.date().required(),
 
+    start_date: Joi.date().required(),
     due_date: Joi.date().required()
   });
 
   const { error, value } = schema.validate(data);
 
   if (error) {
-    throw new AppError(
-      error.details[0].message.replace(/"/g, ""),
-      400
-    );
+    throw new AppError(error.details[0].message.replace(/"/g, ""), 400);
   }
 
   const {
@@ -136,59 +164,91 @@ const updateTask = async (userId, taskId, data) => {
     due_date
   } = value;
 
-  // 2. Due date validation
-  if (new Date(due_date).getTime() < new Date(start_date).getTime()) {
-    throw new AppError("Due date cannot be before start date",400);
+  // 2. Date validation
+  if (new Date(due_date) < new Date(start_date)) {
+    throw new AppError("Due date cannot be before start date", 400);
   }
 
-  // 3. Check task exists
+  // 3. Get task
   const task = await repository.getTaskById(taskId);
 
   if (!task) {
     throw new AppError("Task not found", 404);
   }
 
-  // 4. Get project id from task
+  // =========================
+  // PERSONAL TASK
+  // =========================
+  if (task.task_type === "personal") {
+
+    // only owner of personal task can update
+    if (Number(task.created_by) !== Number(userId)) {
+      throw new AppError("Not allowed to update this personal task", 403);
+    }
+
+    const updatedTask = await repository.updateTask(taskId, {
+      title,
+      description,
+      priority,
+      assigned_to: userId, // always self
+      start_date,
+      due_date
+    });
+
+    return updatedTask;
+  }
+
+  // =========================
+  // PROJECT TASK
+  // =========================
+
   const projectId = task.project_id;
 
-  // 5. Only owner/admin can update task
-  await checkProjectManagementAccess(projectId,userId);
+  if (!projectId) {
+    throw new AppError("Invalid project task", 400);
+  }
 
-  // 6. Check assigned user exists (if provided)
+  // Only admin/owner can update project tasks
+  await checkProjectManagementAccess(projectId, userId);
+
+  // check assigned user validity (if changed)
   if (assigned_to) {
 
     const assignedUser = await userRepository.getUserById(assigned_to);
 
     if (!assignedUser) {
-      throw new AppError("Assigned user not found",404);
+      throw new AppError("Assigned user not found", 404);
     }
 
-    // 7. Assigned user must be project member
-    const member = await projectRepository.getProjectMember(projectId,assigned_to);
+    const member = await projectRepository.getProjectMember(
+      projectId,
+      assigned_to
+    );
 
     if (!member) {
-      throw new AppError("Assigned user is not a project member",403);
+      throw new AppError("Assigned user is not a project member", 403);
     }
   }
 
-  // 8. Check duplicate task title
-  const existingTask = await repository.getTaskByTitleAndProject(projectId,title);
+  // duplicate title check (only inside project scope)
+  const existingTask = await repository.getTaskByTitleAndProject(
+    projectId,
+    title
+  );
 
   if (existingTask && existingTask.id !== Number(taskId)) {
-    throw new AppError("Task already exists",409);
+    throw new AppError("Task already exists", 409);
   }
 
-  // 9. Update task
-  const updatedTask = await repository.updateTask(taskId,
-      {
-        title,
-        description,
-        priority,
-        assigned_to,
-        start_date,
-        due_date
-      }
-    );
+  // update project task
+  const updatedTask = await repository.updateTask(taskId, {
+    title,
+    description,
+    priority,
+    assigned_to,
+    start_date,
+    due_date
+  });
 
   return updatedTask;
 };
@@ -198,25 +258,54 @@ const updateTask = async (userId, taskId, data) => {
 
 
 
-const getTaskById = async (userId,taskId) => {
+const getTaskById = async (userId, taskId) => {
 
   // 1. Validate task id
   if (!taskId || isNaN(taskId)) {
-    throw new AppError("Valid task id is required",400);
+    throw new AppError("Valid task id is required", 400);
   }
 
   // 2. Get task
   const task = await repository.getTaskById(taskId);
 
   if (!task) {
-    throw new AppError("Task not found",404);
+    throw new AppError("Task not found", 404);
   }
 
-  // 3. Check project access
-  await checkProjectViewAccess(task.project_id,userId);
+  // =========================
+  // PERSONAL TASK ACCESS
+  // =========================
+  if (task.task_type === "personal") {
 
-  // 4. Return task
-  return task;
+    const isOwner =
+      Number(task.created_by) === Number(userId);
+
+    const isAssigned =
+      Number(task.assigned_to) === Number(userId);
+
+    if (!isOwner && !isAssigned) {
+      throw new AppError("Access denied to this personal task", 403);
+    }
+
+    return task;
+  }
+
+  // =========================
+  // PROJECT TASK ACCESS
+  // =========================
+
+  if (task.task_type === "project") {
+
+    if (!task.project_id) {
+      throw new AppError("Invalid project task", 400);
+    }
+
+    await checkProjectViewAccess(task.project_id, userId);
+
+    return task;
+  }
+
+  throw new AppError("Invalid task type", 400);
 };
 
 
@@ -246,24 +335,43 @@ const getTasksByProject = async (userId,projectId) => {
 
 
 
-const deleteTask = async (userId,taskId) => {
 
-  // 1. Validate task id
+const deleteTask = async (userId, taskId) => {
+
+
   if (!taskId || isNaN(taskId)) {
-    throw new AppError("Valid task id is required",400);
+    throw new AppError("Valid task id is required", 400);
   }
 
-  // 2. Get task
+
   const task = await repository.getTaskById(taskId);
 
   if (!task) {
-    throw new AppError("Task not found",404);
+    throw new AppError("Task not found", 404);
   }
 
-  // 3. Only project owner/admin can delete
-  await checkProjectManagementAccess(task.project_id,userId);
 
-  // 4. Delete task
+  if (task.task_type === "personal") {
+
+    const isOwner =
+      Number(task.created_by) === Number(userId);
+
+    if (!isOwner) {
+      throw new AppError("Not allowed to delete this personal task", 403);
+    }
+  }
+
+
+  if (task.task_type === "project") {
+
+    if (!task.project_id) {
+      throw new AppError("Invalid project task", 400);
+    }
+
+    await checkProjectManagementAccess(task.project_id, userId);
+  }
+
+
   await repository.deleteTask(taskId);
 
   return true;
@@ -271,38 +379,42 @@ const deleteTask = async (userId,taskId) => {
 
 
 
-
 const startTask = async (userId, taskId) => {
 
-  // 1. Validate task id
+
   if (!taskId || isNaN(taskId)) {
     throw new AppError("Valid task id is required", 400);
   }
 
-  // 2. Get task
+
   const task = await repository.getTaskById(taskId);
 
   if (!task) {
     throw new AppError("Task not found", 404);
   }
 
-  // 3. Get project (IMPORTANT FIX)
-  const project = await projectRepository.getById(task.project_id);
 
-  if (!project) {
-    throw new AppError("Project not found", 404);
+  if (task.task_type === "project") {
+
+    const project = await projectRepository.getById(
+      task.project_id
+    );
+
+    if (!project) {
+      throw new AppError("Project not found", 404);
+    }
+
+
+    if (project.is_deleted) {
+      throw new AppError("Project is deleted", 400);
+    }
+
+
+    if (project.status === "Completed") {
+      throw new AppError("Project is completed", 400);
+    }
   }
 
-  // 4. Block if project is deleted or completed
-  if (project.is_deleted) {
-    throw new AppError("Project is deleted", 400);
-  }
-
-  if (project.status === "Completed") {
-    throw new AppError("Project is completed", 400);
-  }
-
-  // 5. Ensure task is assigned
   if (!task.assigned_to) {
     throw new AppError(
       "Task is not assigned to anyone",
@@ -310,7 +422,7 @@ const startTask = async (userId, taskId) => {
     );
   }
 
-  // 6. ONLY assigned user can start
+  // only assigned user can start
   if (Number(task.assigned_to) !== Number(userId)) {
     throw new AppError(
       "Only assigned user can start this task",
@@ -318,7 +430,7 @@ const startTask = async (userId, taskId) => {
     );
   }
 
-  // 7. Prevent multiple running timers
+
   if (task.is_timer_running) {
     throw new AppError(
       "Task timer is already running",
@@ -326,7 +438,7 @@ const startTask = async (userId, taskId) => {
     );
   }
 
-  // 8. Prevent starting completed task
+
   if (task.status === "Completed") {
     throw new AppError(
       "Cannot start a completed task",
@@ -334,10 +446,18 @@ const startTask = async (userId, taskId) => {
     );
   }
 
-  // 9. Start task
+
+
+const runningTask = await repository.getRunningTaskByUser(userId);
+
+if (runningTask) {
+  throw new AppError("You already have another running task",400);
+}
+
+
   const updatedTask = await repository.startTask(taskId);
 
-  // 10. Create time log session
+  // create session
   await repository.createTimeLog(
     taskId,
     userId
@@ -458,12 +578,41 @@ const completeTask = async (userId, taskId) => {
 };
 
 
+
+
 const getMyActiveTasks = async (userId) => {
 
   const tasks = await repository.getActiveTasksByUser(userId);
 
   return tasks;
 };
+
+
+
+
+const getUnassignedTasks = async (userId, projectId) => {
+
+  if (!projectId || isNaN(projectId)) {
+    throw new AppError("Valid project id is required", 400);
+  }
+
+  // 1. Check project exists
+  const project = await projectRepository.getById(projectId);
+
+  if (!project) {
+    throw new AppError("Project not found", 404);
+  }
+
+  // 2. Permission check (members can view tasks)
+  await checkProjectViewAccess(projectId, userId);
+
+  // 3. Get unassigned tasks
+  const tasks = await repository.getUnassignedTasks(projectId);
+
+  return tasks;
+};
+
+
 
 
 
@@ -478,5 +627,6 @@ module.exports = {
   stopTask,
   completeTask,
 
-  getMyActiveTasks
+  getMyActiveTasks,
+  getUnassignedTasks
 };

@@ -59,6 +59,7 @@ const createTask = async (task) => {
     project_id,
     title,
     description,
+    task_type,
     priority,
     assigned_to,
     start_date,
@@ -72,19 +73,21 @@ const createTask = async (task) => {
         project_id,
         title,
         description,
+        task_type,
         priority,
         assigned_to,
         start_date,
         due_date,
         created_by
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       RETURNING *
     `,
     [
       project_id,
       title,
       description,
+      task_type,
       priority,
       assigned_to,
       start_date,
@@ -105,7 +108,7 @@ const getTaskById = async (taskId) => {
         t.*,
 
         p.name AS project_name,
-        p.owner_id,
+        p.owner_id AS project_owner_id,
 
         u1.name AS assigned_user_name,
         u1.email AS assigned_user_email,
@@ -114,7 +117,7 @@ const getTaskById = async (taskId) => {
 
       FROM tasks t
 
-      INNER JOIN projects p
+      LEFT JOIN projects p
         ON p.id = t.project_id
 
       LEFT JOIN users u1
@@ -124,7 +127,7 @@ const getTaskById = async (taskId) => {
         ON u2.id = t.created_by
 
       WHERE t.id = $1
-      AND t.is_deleted = false
+        AND t.is_deleted = false
     `,
     [taskId]
   );
@@ -346,6 +349,8 @@ const stopTaskTimer = async (taskId) => {
   );
 };
 
+
+
 const completeTask = async (taskId) => {
 
   const result = await db.query(
@@ -370,17 +375,17 @@ const completeTask = async (taskId) => {
 
 
 
-
-
 const getActiveTasksByUser = async (userId) => {
 
   const result = await db.query(
     `
     SELECT
-      t.*
+      t.*,
+      p.name AS project_name
+
     FROM tasks t
 
-    INNER JOIN projects p
+    LEFT JOIN projects p
       ON p.id = t.project_id
 
     WHERE t.assigned_to = $1
@@ -388,8 +393,13 @@ const getActiveTasksByUser = async (userId) => {
       AND t.is_deleted = false
       AND t.status != 'Completed'
 
-      AND p.is_deleted = false
-      AND p.status != 'Completed'
+      AND (
+        t.task_type = 'personal'
+        OR (
+          p.is_deleted = false
+          AND p.status != 'Completed'
+        )
+      )
 
     ORDER BY t.created_at DESC
     `,
@@ -417,6 +427,69 @@ const getTaskByIdForTimer = async (taskId) => {
 };
 
 
+
+
+const getRunningTaskByUser = async (userId) => {
+
+  const result = await db.query(
+    `
+    SELECT *
+    FROM tasks
+    WHERE assigned_to = $1
+      AND is_timer_running = true
+      AND status != 'Completed'
+    LIMIT 1
+    `,
+    [userId]
+  );
+
+  return result.rows[0];
+};
+
+
+
+
+const unassignTasksByUserAndProject = async (projectId, userId) => {
+
+  await db.query(
+    `
+    UPDATE tasks
+    SET assigned_to = NULL,
+        updated_at = NOW()
+    WHERE project_id = $1
+      AND assigned_to = $2
+      AND is_deleted = false
+      AND status != 'Completed'
+    `,
+    [projectId, userId]
+  );
+};
+
+
+
+
+const getUnassignedTasks = async (projectId) => {
+
+  const result = await db.query(
+    `
+    SELECT
+      t.*,
+      p.name AS project_name
+    FROM tasks t
+    INNER JOIN projects p
+      ON p.id = t.project_id
+    WHERE t.project_id = $1
+      AND t.assigned_to IS NULL
+      AND t.is_deleted = false
+      AND t.status != 'Completed'
+    ORDER BY t.created_at DESC
+    `,
+    [projectId]
+  );
+
+  return result.rows;
+};
+
 module.exports = {
   createTask,
   getById,
@@ -438,7 +511,11 @@ module.exports = {
 
   updateTask,
   getActiveTasksByUser,
-  getTaskByIdForTimer
+  getTaskByIdForTimer,
+
+  getRunningTaskByUser,
+  unassignTasksByUserAndProject,
+  getUnassignedTasks
   
 
 };

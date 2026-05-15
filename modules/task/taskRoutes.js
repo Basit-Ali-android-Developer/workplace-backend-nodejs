@@ -11,7 +11,8 @@ const { createTask,
     stopTask,
     completeTask,
     updateTask,
-    getMyActiveTasks
+    getMyActiveTasks,
+    getUnassignedTasks
         
         } = require('./taskController');
 
@@ -27,6 +28,9 @@ router.post('/stopTask/:id',userMiddleware,stopTask);
 router.post('/completeTask/:id',userMiddleware,completeTask);
 
 router.get('/getMyActiveTasks',userMiddleware, getMyActiveTasks);
+
+
+router.get('/getUnassignedTasks/:id',userMiddleware,getUnassignedTasks);
 
 
 

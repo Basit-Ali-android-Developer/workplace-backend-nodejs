@@ -19,6 +19,24 @@ const addMember = asyncHandler(async (req, res) => {
 });
 
 
+
+
+const removeMember = asyncHandler(async (req, res) => {
+
+  const result = await service.removeMember(
+    req.user.id,
+    req.params.id,   // projectId
+    req.body.user_id // user to remove
+  );
+
+  res.status(200).json({
+    result: "success",
+    message: "Member removed successfully",
+    data: result
+  });
+});
+
 module.exports = {
-    addMember
+    addMember,
+    removeMember
 };

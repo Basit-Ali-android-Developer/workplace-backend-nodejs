@@ -162,6 +162,24 @@ const getMyActiveTasks = asyncHandler(async (req, res) => {
 });
 
 
+
+const getUnassignedTasks = asyncHandler(async (req, res) => {
+
+  const tasks = await service.getUnassignedTasks(
+    req.user.id,
+    req.params.id // projectId
+  );
+
+  res.status(200).json({
+    result: "success",
+    message: "Unassigned tasks fetched successfully",
+    data: tasks
+  });
+});
+
+
+
+
 module.exports = {
   createTask,
   getTaskById,
@@ -173,5 +191,6 @@ module.exports = {
   stopTask,
   completeTask,
 
-  getMyActiveTasks
+  getMyActiveTasks,
+  getUnassignedTasks
 };

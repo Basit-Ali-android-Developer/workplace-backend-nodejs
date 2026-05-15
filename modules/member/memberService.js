@@ -5,6 +5,7 @@ const projectRepository = require("../project/projectRepository");
 const userRepository = require("../user/userRepository");
 const AppError = require("../../utils/AppError");
 const projectAccess = require("../../utils/projectAccess");
+const taskRepository = require("../task/taskRepository");
 
 
 
@@ -77,7 +78,49 @@ const addMember = async (currentUserId, projectId, data) => {
 
 
 
+const removeMember = async (currentUserId, projectId, userId) => {
+
+  // 1. Check project
+  const project = await projectRepository.getById(projectId);
+
+  if (!project) {
+    throw new AppError("Project not found", 404);
+  }
+
+  // 2. Only admin/owner can remove members
+  await projectAccess.checkProjectManagementAccess(
+    projectId,
+    currentUserId
+  );
+
+  // 3. Check member exists
+  const member = await repository.getProjectMember(projectId, userId);
+
+  if (!member) {
+    throw new AppError("User is not a project member", 404);
+  }
+
+  // 4. Prevent removing owner (important safety rule)
+  if (project.owner_id === Number(userId)) {
+    throw new AppError("Project owner cannot be removed",400);
+  }
+
+  // 5. Unassign all tasks of this user in this project
+  await taskRepository.unassignTasksByUserAndProject(
+    projectId,
+    userId
+  );
+
+  // 6. Remove member
+  await repository.removeProjectMember(projectId, userId);
+
+  return { removedUserId: userId };
+};
+
+
+
 
 module.exports = {
-    addMember
+    addMember,
+    removeMember
 };

@@ -65,8 +65,45 @@ const getUserByEmail = async (email) => {
 };
 
 
+
+const unassignTasksByUserAndProject = async (projectId, userId) => {
+
+  await db.query(
+    `
+    UPDATE tasks
+    SET assigned_to = NULL,
+        updated_at = NOW()
+    WHERE project_id = $1
+      AND assigned_to = $2
+      AND is_deleted = false
+    `,
+    [projectId, userId]
+  );
+};
+
+
+const removeProjectMember = async (projectId, userId) => {
+
+  const result = await db.query(
+    `
+    DELETE FROM project_members
+    WHERE project_id = $1
+      AND user_id = $2
+    RETURNING *
+    `,
+    [projectId, userId]
+  );
+
+  return result.rows[0];
+};
+
+
+
+
 module.exports = {
     getProjectMember,
     addProjectMember,
-    getUserByEmail
+    getUserByEmail,
+    unassignTasksByUserAndProject,
+    removeProjectMember
 };
