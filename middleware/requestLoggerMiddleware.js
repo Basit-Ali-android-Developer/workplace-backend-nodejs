@@ -1,14 +1,18 @@
 const logger = require("../utils/logger/logger");
 
 const requestLogger = (req, res, next) => {
-  const start = Date.now();
+  const start = process.hrtime.bigint();
 
   res.on("finish", () => {
-    const duration = Date.now() - start;
+    const duration = Number(process.hrtime.bigint() - start) / 1e6;
 
-    logger.info(
-      `${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms`
-    );
+    logger.info({
+      type: "REQUEST",
+      method: req.method,
+      url: req.originalUrl,
+      statusCode: res.statusCode,
+      duration_ms: Number(duration.toFixed(2))
+    });
   });
 
   next();
