@@ -21,9 +21,9 @@ const app = express();
 // ==========================
 // SECURITY MIDDLEWARE
 // ==========================
-app.use(compression());
-app.use(helmet());
-app.use(cors());
+app.use(compression());        //  it minize the size of responce so api become fast
+app.use(helmet());             // It reduces attack surface at HTTP level
+app.use(cors());               // Controls who is allowed to call your API from a browser
 
 
 
