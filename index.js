@@ -16,7 +16,7 @@ const memberRoutes = require("./modules/member/memberRoutes");
 
 const app = express();
 
-
+console.log(process.env.DATABASE_URL);
 
 // ==========================
 // SECURITY MIDDLEWARE
