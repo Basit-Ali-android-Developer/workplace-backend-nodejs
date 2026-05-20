@@ -114,7 +114,6 @@ module.exports = {
   uploadProfileImage,
   getUser,
   updateProfile,
-
   forgotPassword,
   resetPassword
 };
