@@ -31,10 +31,7 @@ const signup = async (data) => {
   const { error, value } = schema.validate(data);
 
   if (error) {
-    throw new AppError(
-      error.details[0].message.replace(/"/g, ''),
-      400
-    );
+    throw new AppError(error.details[0].message.replace(/"/g, ''),400);
   }
 
   
